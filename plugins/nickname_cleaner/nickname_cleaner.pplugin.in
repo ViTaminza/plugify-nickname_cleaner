@@ -1,0 +1,24 @@
+{
+	"$schema": "https://raw.githubusercontent.com/untrustedmodders/plugify/refs/heads/main/schemas/plugin.schema.json",
+	"version": "${NICKNAME_CLEANER_VERSION}",
+	"name": "nickname_cleaner",
+	"description": "Nickname cleaner, ported from the Metamod plugin nickname_cleaner (ABKAM). Reads addons/configs/nickname_cleaner/settings.ini (DefaultName) plus whitelist.txt/blocklist.txt and rewrites the name of every human player whose nickname contains a blocked word or an advertisement (blocklist entries '*.xx' match the end of a token, other entries a substring; the whitelist wins; http://, https:// and www. are always dropped) on round_prestart, one second after player_spawn and on client authorization. A name whose tokens are all filtered becomes DefaultName. No exported methods.",
+	"author": "ABKAM, ported to Plugify",
+	"website": "https://github.com/untrustedmodders/plugify",
+	"license": "GPL-3.0",
+	"entry": "bin/nickname_cleaner",
+	"platforms": [],
+	"language": "cpp",
+	"dependencies": [
+		{
+			"name": "s2sdk",
+			"constraints": ">=2.18.2"
+		},
+		{
+			"name": "hudmenu",
+			"constraints": ">=1.0.0",
+			"optional": true
+		}
+	],
+	"methods": []
+}
