@@ -1,10 +1,17 @@
 # nickname_cleaner — Plugify port of the Metamod plugin nickname_cleaner (ABKAM): rewrites
 # player names that contain blocked words or advertisement with the configured default name.
 #
+# Pure s2sdk (docs/PLUGIN_STANDARD.md §7): no pisexcompat and no guard library. The map gate
+# (PITFALLS B1/B2), the slot/controller checks (C2), the event hooks (C12) and the update-driven
+# player_spawn countdown live in src/plugin.cpp; the self-contained KV1 reader and the config
+# lookup live in src/kv1.hpp and src/config.hpp.
+#
 #   plugify-nickname_cleaner  the plugin shared library (entry "bin/nickname_cleaner")
-#   nickname_cleaner_core     the engine-independent filter/cleaning logic (+ its tests)
+#   nickname_cleaner_core     the engine-independent filter/cleaning logic
+#   nickname_cleaner_tests    engine-free unit tests (core, KV1 reader, config paths) plus the
+#                             plugin guards driven through fake __s2sdk_* bindings
 
-set(NICKNAME_CLEANER_VERSION "1.0.1")
+set(NICKNAME_CLEANER_VERSION "1.1.0")
 
 # --- engine-independent core --------------------------------------------------
 add_library(nickname_cleaner_core STATIC src/nickname_cleaner_core.cpp)
@@ -15,14 +22,15 @@ target_compile_definitions(nickname_cleaner_core PUBLIC _GLIBCXX_USE_CXX11_ABI=1
 # --- plugin -------------------------------------------------------------------
 add_library(plugify-nickname_cleaner SHARED
         src/plugin.cpp
+        # Binding globals (__s2sdk_*) filled by the plugify module from the s2sdk dependency.
         $<TARGET_OBJECTS:s2sdk_bindings>
 )
 target_include_directories(plugify-nickname_cleaner PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-# SYSTEM: warnings from the generated pisexcompat/plg/s2sdk headers must not fail -Werror on us.
+# SYSTEM: warnings from the generated s2sdk/plg headers must not fail -Werror on our sources.
 target_include_directories(plugify-nickname_cleaner SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/sdk/include")
 target_link_libraries(plugify-nickname_cleaner PRIVATE
+        plugify_sdk
         nickname_cleaner_core
-        pisexcompat
         -static-libstdc++ -static-libgcc
 )
 target_compile_options(plugify-nickname_cleaner PRIVATE -Wall -Wextra -Werror)
@@ -45,14 +53,38 @@ configure_file(
 )
 
 # --- tests --------------------------------------------------------------------
-add_executable(nickname_cleaner_core_tests
-        tests/nickname_cleaner_core_tests.cpp
-        src/nickname_cleaner_core.cpp
-)
-target_include_directories(nickname_cleaner_core_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_compile_options(nickname_cleaner_core_tests PRIVATE -Wall -Wextra -Werror)
-# The list files the package ships drive the end-to-end checks.
-target_compile_definitions(nickname_cleaner_core_tests PRIVATE
-        NICKNAME_CLEANER_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-set_target_properties(nickname_cleaner_core_tests PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+# nickname_cleaner_tests: no engine and no pisexcompat. tests/nickname_cleaner_tests.cpp includes
+# src/plugin.cpp (the advertisement/resetscore technique), so the whole plugin code path runs
+# against recording fakes installed in the __s2sdk_* globals: the KV1 reader, the config lookup,
+# the map gate (B1/B2), the guarded client wrappers (C2), the event hooks and their teardown (C12)
+# and the player_spawn countdown array. The list files the package ships drive the end-to-end checks.
+#
+# The top-level CMakeLists declares the PLUGIFY_PORT_TESTS option *after* the plugin directories,
+# so on a first configure it is not defined here yet: default it to the same ON. An explicit
+# -DPLUGIFY_PORT_TESTS=OFF is already in the cache and still wins.
+if(NOT DEFINED PLUGIFY_PORT_TESTS)
+    set(PLUGIFY_PORT_TESTS ON)
+endif()
+if(PLUGIFY_PORT_TESTS)
+    add_executable(nickname_cleaner_tests
+            tests/nickname_cleaner_tests.cpp
+            $<TARGET_OBJECTS:s2sdk_bindings>
+    )
+    target_include_directories(nickname_cleaner_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_include_directories(nickname_cleaner_tests SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/sdk/include")
+    target_link_libraries(nickname_cleaner_tests PRIVATE
+            plugify_sdk
+            nickname_cleaner_core
+            -static-libstdc++ -static-libgcc
+    )
+    target_compile_options(nickname_cleaner_tests PRIVATE -Wall -Wextra -Werror)
+    target_compile_definitions(nickname_cleaner_tests PRIVATE
+            _GLIBCXX_USE_CXX11_ABI=1
+            PLUGIFY_MODULE="nickname_cleaner"
+            PLUGIFY_IS_DEBUG=0
+            PLUGIFY_IS_RELEASE=1
+            NICKNAME_CLEANER_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+    )
+    set_target_properties(nickname_cleaner_tests PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+endif()

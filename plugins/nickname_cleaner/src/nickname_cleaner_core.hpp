@@ -1,8 +1,8 @@
 // nickname_cleaner — engine-independent core: the whitelist/blocklist tables and the nickname
 // scrubbing of the original plugin.
 //
-// Everything here is pure string work, so it is covered by nickname_cleaner_core_tests without an
-// engine (see tests/nickname_cleaner_core_tests.cpp).
+// Everything here is pure string work, so it is covered by nickname_cleaner_tests without an
+// engine (see tests/nickname_cleaner_tests.cpp).
 
 #pragma once
 
